@@ -1,0 +1,116 @@
+/*
+
+This sample assumes you already have the SDL and GLEW headers and binaries
+
+The resulting C file should be linked with:
+	- the static GLEW import lib (glew32s.lib on Windows)
+	- the SDL2 libraries
+	- your platform's OpenGL library
+
+An example for compiling on Windows might be:
+
+> ion test
+Generated out_test.c
+
+> cl -MT -I <path-to-SDL.h> -I <path-to-glew.h> out_test.c -link -subsystem:console -out:test.exe SDL2main.lib SDL2.lib opengl32.lib glew32s.lib
+
+*/
+
+#foreign(preamble = "#define GLEW_STATIC")
+#foreign(header = "<GL/glew.h>")
+
+import libc {...}
+import sdl {...}
+import opengl {...}
+
+@foreign
+func glewInit(): GLenum;
+
+@foreign
+func glewGetErrorString(error: GLenum): GLubyte const*;
+
+@foreign
+var glewExperimental: GLboolean;
+
+@foreign
+const GLEW_OK = 0;
+
+const WINDOW_WIDTH  = 800;
+const WINDOW_HEIGHT = 600;
+
+func initSDL(window: SDL_Window**): bool
+{
+	if (SDL_Init(SDL_INIT_VIDEO) < 0)
+	{
+		fprintf(stderr, "SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+		SDL_Quit();
+		return false;
+	}
+
+	*window = SDL_CreateWindow("Test",
+		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		WINDOW_WIDTH, WINDOW_HEIGHT,
+		SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+
+	if (!window)
+	{
+		fprintf(stderr, "Window could not be created! SDL_Error: %s\n", SDL_GetError());
+		return false;
+	}
+
+	glContext := SDL_GL_CreateContext(*window);
+	if (!glContext)
+	{
+		fprintf(stderr, "There was an error creating the OpenGL context!\n");
+		return false;
+	}
+
+	SDL_GL_MakeCurrent(*window, glContext);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+	glewExperimental = GL_TRUE;
+	glew_status := glewInit();
+	if (glew_status != GLEW_OK)
+	{
+		fprintf(stderr, "Error: %s\n", glewGetErrorString(glew_status));
+		return false;
+	}
+
+	return true;
+}
+
+func main(argc: int, argv: char**): int
+{
+	window: SDL_Window*;
+	if (!initSDL(&window))
+	{
+		SDL_Quit();
+		exit(1);
+	}
+
+	SDL_GL_SetSwapInterval(1);
+	glClearColor(0.4, 0.7, 0.9, 1.0);
+
+	stop: bool = false;
+
+	while (!stop)
+	{
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		e: SDL_Event;
+		while (SDL_PollEvent(&e))
+		{
+			switch (e.type)
+			{
+				case SDL_QUIT: stop = true;
+				case SDL_KEYDOWN: stop = true;
+			}
+		}
+
+		SDL_GL_SwapWindow(window);
+	}
+
+	return 0;
+}
